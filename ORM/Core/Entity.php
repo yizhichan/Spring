@@ -22,6 +22,11 @@ abstract class Entity extends Object implements IEntity
 	public $db          = null;
 
 	/**
+	 * 分表标识
+	 */
+	public $slice       = 0;
+
+	/**
 	 * 数据表标识(全局唯一)
 	 */
 	public $tableKey    = null;
@@ -35,6 +40,11 @@ abstract class Entity extends Object implements IEntity
 	 * 调试开关
 	 */
 	public $debug       = false;
+
+	/**
+	 * 从哪读数据（1主服务器、0从服务器）
+	 */
+	private $from       = 1;
 
 	/**
 	 * 表行记录
@@ -84,6 +94,34 @@ abstract class Entity extends Object implements IEntity
 	}
 
 	/**
+	 * 主从定位
+	 *
+	 * @access	public
+	 * @param	int		$master		1为主服务器、0为从服务器
+	 * @return	Entity
+	 */
+	public function locate($master)
+	{
+		$this->from = $master;
+
+		return $this;
+	}
+
+	/**
+	 * 路由设置
+	 *
+	 * @access	public
+	 * @param	string	$tableKey	数据表标识(全局唯一)
+	 * @return	Entity
+	 */
+	public function route($tableKey)
+	{
+		$this->tableKey = $tableKey;
+
+		return $this;
+	}
+
+	/**
 	 * 得到结构信息
 	 *
 	 * @access	public
@@ -94,6 +132,19 @@ abstract class Entity extends Object implements IEntity
 		$this->createDbObject();
 
 		return $this->db->struct($this->tableKey);
+	}
+
+	/**
+	 * 获取实体对应的数据表名
+	 *
+	 * @access	public
+	 * @return	string
+	 */
+	public function getTableName()
+	{
+		$this->createDbObject();
+
+		return $this->db->getTable($this->tableKey);
 	}
 
 	/**
@@ -113,6 +164,7 @@ abstract class Entity extends Object implements IEntity
 		
 		$rule['eq']    = array( $this->pk => $id );
 		$rule['slice'] = $this->slice;
+		$rule['from']  = $this->from;
 		$this->createDbObject();
 		$data          = $this->db->findOne($this->tableKey, $rule);
 		
@@ -133,6 +185,7 @@ abstract class Entity extends Object implements IEntity
 	 */
 	public function find($rule)
 	{
+		$rule['from'] = $this->from;
 		!isset($rule['limit']) && $rule['limit'] = 1;
 		if ( isset($rule['index']) )
 		{
@@ -164,7 +217,8 @@ abstract class Entity extends Object implements IEntity
 		$rule['page']  = $page >= 1 ? $page : 1;
 		$this->createDbObject();
 		$rule['slice'] = $this->slice;
-		
+		$rule['from']  = $this->from;
+
 		return $this->db->findAll($this->tableKey, $rule);
 	}
 
@@ -179,8 +233,25 @@ abstract class Entity extends Object implements IEntity
 	{
 		$this->createDbObject();
 		$rule['slice'] = $this->slice;
+		$rule['from']  = $this->from;
 
 		return $this->db->count($this->tableKey, $rule);
+	}
+
+	/**
+	 * 原始查询
+	 *
+	 * @access	public
+	 * @param	array	$rule	数据查询规则
+	 * @return	array
+	 */
+	public function query($rule)
+	{
+		$this->createDbObject();
+		$rule['slice'] = $this->slice;
+		$rule['from']  = $this->from;
+
+		return $this->db->raw($this->tableKey, $rule);
 	}
 
 	/**

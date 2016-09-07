@@ -13,6 +13,9 @@
 //Spring版本号
 define('Version', 'Spring3.1.4');
 
+//调试级别：1非严格模式、2严格模式
+defined('Debug')       or define('Debug', 1);
+
 //Spring框架目录
 defined('LibDir')      or define('LibDir', dirname(__FILE__));
 
@@ -229,7 +232,11 @@ class Spring
 			$error['line'] = $e->getLine();
         }
 		ErrorHandle::record($e, 'error');
-        self::halt($error);
+        
+		if ( Debug == 2 )
+		{
+			self::halt($error);
+		}
 	}
 
 	/**
@@ -251,13 +258,21 @@ class Spring
 		$e['line'] = $errline;
 		if ( in_array($errno, $errors) )
 		{
-			ob_end_clean();
+			if ( php_sapi_name() != "cli" )
+			{
+				ob_end_clean();
+			}
+
 			ErrorHandle::record($e, 'error');
 			self::halt($e);
 		}
 		else
 		{
 			ErrorHandle::record($e, 'notice');
+			if ( Debug == 2 )
+			{
+				self::halt($e);
+			}
 		}
 	}
 
@@ -276,7 +291,12 @@ class Spring
 			$e['desc']  = $error['message'];
 			$e['file']  = $error['file'];
 			$e['line']  = $error['line'];
-			ob_end_clean();
+			
+			if ( php_sapi_name() != "cli" )
+			{
+				ob_end_clean();
+			}
+
 			ErrorHandle::record($e, 'error');
 			self::halt($e);
 		}

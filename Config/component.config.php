@@ -28,6 +28,38 @@ $configs[] = array(
 'className'  => 'DataFilter',
 );
 
+//Solr全文检索组件
+$configs[] = array(
+'id'        => 'solr',
+'enable'    => true,
+'source'    => LibDir.'/Util/Tool/SolrSearch.php',
+'className' => 'SolrSearch',
+'property'  => array(
+	'configFile' => ConfigDir.'/Db/solr.master.config.php',
+));
+
+//Sphinx全文检索组件
+$configs[] = array(
+'id'        => 'sphinx',
+'enable'    => true,
+'source'    => LibDir.'/Util/Tool/SphinxSearch.php',
+'className' => 'SphinxSearch',
+'property'  => array(
+	'objRef' => array('sphinxClient' => 'sphinxClient'),
+));
+
+//全文索引客户端
+$configs[] = array(
+'id'        => 'sphinxClient',
+'enable'    => true,
+'source'    => LibDir.'/Util/Tool/SphinxClient.php',
+'className' => 'SphinxClient',
+'property'  => array(
+	'_host'  => '127.0.0.1',
+	'_port'  => 9312,
+	'_arrayresult' => true,
+	'_timeout' => 2,
+));
 
 //文件上传
 $configs[] = array(

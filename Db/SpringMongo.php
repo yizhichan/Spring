@@ -9,7 +9,7 @@
  * @version 3.1.4
  +------------------------------------------------------------------------------
  */
-class SpringMongo implements IDataSource
+class SpringMongo
 {
 	/**
 	 * 连接数据库配置文件
@@ -20,7 +20,7 @@ class SpringMongo implements IDataSource
 	 * 增删改操作选项
 	 */
 	public $options     = array(
-		'safe'     => true,
+		'w'        => true,
 		'fsync'    => true,
 		'multiple' => true,
 		);
@@ -90,8 +90,8 @@ class SpringMongo implements IDataSource
 			try
 			{
 				$server        = $user && $password ? "mongodb://{$user}:{$password}@{$host}" : "mongodb://{$host}";
-				$this->connect = new Mongo($server);
-				$this->db      = $this->connect->$db;  
+				$this->connect = new MongoClient($server);
+				$this->db      = $this->connect->selectDB($db);
 			}
 			catch ( MongoConnectionException $e )
 			{
@@ -126,26 +126,45 @@ class SpringMongo implements IDataSource
 	private function where($where)
 	{
 		$wh = array();
+
 		if ( isset($where['eq']) && is_array($where['eq']) && !empty($where['eq']) ) {
 			foreach ($where['eq'] as $key => $value) {
-				$wh[$key] = is_numeric($value) ? ( is_int($value) ? intval($value) : floatval($value) ) : $value;
+				$wh[$key] = $this->convert($value);
 			}
 		}
 
 		if ( isset($where['in']) && is_array($where['in']) && !empty($where['in']) ) {
-			foreach ($where['in'] as $key => $value) {
-				if ( is_array($value) ) {
-					$wh[$key] = array('$in' => $value);
+			foreach ( $where['in'] as $key => $values ) {
+				if ( !is_array($values) || !$values ) {
+					continue ;
 				}
+
+				foreach ( $values as &$value ) {
+					$value = $this->convert($value);
+				}
+				$wh[$key] = array('$in' => $values);
+			}
+		}
+
+		if ( isset($where['notIn']) && is_array($where['notIn']) && !empty($where['notIn']) ) {
+			foreach ( $where['notIn'] as $key => $values ) {
+				if ( !is_array($values) || !$values ) {
+					continue ;
+				}
+
+				foreach ( $values as &$value ) {
+					$value = $this->convert($value);
+				}
+				$wh[$key] = array('$nin' => $values);
 			}
 		}
 
 		if ( isset($where['scope']) && is_array($where['scope']) && !empty($where['scope']) ) {
-			foreach ($where['scope'] as $key => $value) {
-				if ( is_array($value) && count($value) == 2  && $value[0] < $value[1]) {
-					$value[0] = is_numeric($value[0]) ? ( is_int($value[0]) ? intval($value[0]) : floatval($value[0]) ) : $value[0];
-					$value[1] = is_numeric($value[1]) ? ( is_int($value[1]) ? intval($value[1]) : floatval($value[1]) ) : $value[1];
-					$wh[$key] = array('$gte' => $value[0], '$lte' => $value[1]);
+			foreach ($where['scope'] as $key => $values) {
+				if ( is_array($values) && count($values) == 2  && $values[0] < $values[1]) {
+					$min = $this->convert($values[0]);
+					$max = $this->convert($values[1]);
+					$wh[$key] = array('$gte' => $min, '$lte' => $max);
 				}
 			}
 		}
@@ -155,7 +174,7 @@ class SpringMongo implements IDataSource
 				if ( is_array($value) ) {
 					$wh[$key] = new MongoRegex("\/*".implode('', $value)."/i");
 				} else {
-					$wh[$key] = new MongoRegex("\/*".$value."/i");
+					$wh[$key] = new MongoRegex("\/*".$value."*/i");
 				}
 			}
 		}
@@ -201,7 +220,7 @@ class SpringMongo implements IDataSource
 			      ? $rule['col'] 
 			      : array();
 		 
-		 return $this->db->$tableKey->findOne($where, $col);
+		 return $this->db->selectCollection($tableKey)->findOne($where, $col);
 	}
 	
 	/**
@@ -230,7 +249,7 @@ class SpringMongo implements IDataSource
 			      : array();
 		$limit  = isset($rule['limit']) ? intval($rule['limit']) : 1;
 		$limit  = $limit <=0 ? 1 : $limit;
-		$cursor = $this->db->$tableKey->find($where, $col)->sort($order)->limit($limit);
+		$cursor = $this->db->selectCollection($tableKey)->find($where, $col)->sort($order)->limit($limit);
 		foreach ($cursor as $row)
 		{
 			$rows[] = $row;
@@ -270,8 +289,8 @@ class SpringMongo implements IDataSource
 		$where  = $this->where($rule);
 		$order  = isset($rule['order']) ? $this->order($rule['order']) : array();
 		$rows   = array();
-		$total  = $this->db->$tableKey->find($where, $col)->count();
-		$cursor = $this->db->$tableKey->find($where, $col)->sort($order)
+		$total  = $this->db->selectCollection($tableKey)->find($where, $col)->count();
+		$cursor = $this->db->selectCollection($tableKey)->find($where, $col)->sort($order)
 			->skip($offset)->limit($limit);
 		
 		foreach ( $cursor as $row )
@@ -306,7 +325,7 @@ class SpringMongo implements IDataSource
 			     ? $rule['col'] 
 			     : array();
 
-		return $this->db->$tableKey->find($where, $col)->count();
+		return $this->db->selectCollection($tableKey)->find($where, $col)->count();
 	}
 	
 	/**
@@ -330,10 +349,15 @@ class SpringMongo implements IDataSource
 			return 0;
 		}
 
-		$data = $this->convert($data);
+		$record = array();
+		foreach ( $data as $key => $val )
+		{
+			$record[$key] = $this->convert($val);
+		}
+
 		try
 		{
-			$this->db->$tableKey->insert($data, $this->options);
+			$this->db->selectCollection($tableKey)->insert($record);
 			$result = 1;
 		}
 		catch( MongoCursorException $e ) 
@@ -367,13 +391,18 @@ class SpringMongo implements IDataSource
 			return false;
 		}
 
-		$data  = array( '$set' => $this->convert($data) );
+		$record = array();
+		foreach ( $data as $key => $val )
+		{
+			$record[$key] = $this->convert($val);
+		}
+
+		$data  = array( '$set' => $record );
 		$where = $this->where($rule);
-		$where = $this->convert($where);
 		
 		try
 		{
-			$this->db->$tableKey->update($where, $data, $this->options);
+			$this->db->selectCollection($tableKey)->update($where, $data, $this->options);
 			$bool = true;
 		}
 		catch( MongoCursorException $e ) 
@@ -407,11 +436,9 @@ class SpringMongo implements IDataSource
 		}
 
 		$where = $this->where($rule);
-		$where = $this->convert($where);
-
 		try
 		{
-			$bool = $this->db->$tableKey->remove($where, $this->options);
+			$bool = $this->db->selectCollection($tableKey)->remove($where, $this->options);
 			$bool = true;
 		}
 		catch( MongoCursorException $e ) 
@@ -438,7 +465,7 @@ class SpringMongo implements IDataSource
 			return false;
 		}
 		
-		return $this->db->$tableKey->drop();
+		return $this->db->selectCollection($tableKey)->drop();
 	}
 
 	/**
@@ -451,26 +478,17 @@ class SpringMongo implements IDataSource
 	{
 		return '';
 	}
-	
+
 	/**
 	 * 数据类型转换
 	 *
 	 * @access	private
-	 * @param	array	$data  键值对数据
-	 * @return	array
+	 * @param	string	$value  待转换的值
+	 * @return	mixed
 	 */
-	private function convert($data)
+	private function convert($value)
 	{
-		if ( !is_array($data) || empty($data) )
-		{
-			return array();
-		}
-
-		foreach ( $data as $key => $value )
-		{
-			$data[$key] = is_numeric($value) ? ( is_int($value) ? intval($value) : floatval($value) ) : $value;
-		}
-		return $data;
+		return is_numeric($value) ? ( is_int($value) ? intval($value) : floatval($value) ) : $value;
 	}
 }
 ?>

@@ -46,6 +46,18 @@ abstract class Model extends ModelActionBase
 	}
 
 	/**
+	 * 主从定位
+	 *
+	 * @access	protected
+	 * @param	int		$master		1为主服务器、0为从服务器
+	 * @return	Entity
+	 */
+	protected function locate($master = 1)
+	{
+		return $this->createEntity($this->entity)->locate($master);
+	}
+
+	/**
 	 * 更换实体
 	 *
 	 * @access	protected
@@ -55,6 +67,8 @@ abstract class Model extends ModelActionBase
 	protected function change($name)
 	{
 		$this->entity = $name;
+
+		return $this;
 	}
 
 	/**
@@ -102,6 +116,17 @@ abstract class Model extends ModelActionBase
 	protected function struct()
 	{
 		return $this->createEntity($this->entity)->struct();
+	}
+
+	/**
+	 * 获取实体对应的数据表名
+	 *
+	 * @access	protected
+	 * @return	array
+	 */
+	protected function getTableName()
+	{
+		return $this->createEntity($this->entity)->getTableName();
 	}
 	
 	/**
@@ -159,6 +184,20 @@ abstract class Model extends ModelActionBase
 		$this->createEntity($this->entity)->slice($this->slice);
 
 		return $this->createEntity($this->entity)->count($rule);
+	}
+
+	/**
+	 * 原始查询
+	 *
+	 * @access	protected
+	 * @param	array		$rule	数据查询规则
+	 * @return	int
+	 */
+	protected function query($rule)
+	{
+		$this->createEntity($this->entity)->slice($this->slice);
+
+		return $this->createEntity($this->entity)->query($rule);
 	}
 
 	/**

@@ -113,7 +113,8 @@ class ServiceFactory
 		//执行组件中指定的初始化方法
 		if ( isset($config['initMethod']) && method_exists($object, $config['initMethod']) )
 		{
-			$object->$config['initMethod']();
+			$method = $config['initMethod'];
+			$object->$method();
 		}
 		
 		//构造组件中的依赖对象

@@ -14,7 +14,12 @@ abstract class RpcClient
 	/**
 	 * rpc服务端地址,如:http://api.chofn.net/
 	 */
-	public $url = '';
+	public $url     = '';
+
+	/**
+	 * 超时（默认5秒）
+	 */
+	public $timeout = 5000;
 
 	/**
 	 * 发送请求
@@ -37,6 +42,7 @@ abstract class RpcClient
 		try
 		{
 			$client = new Yar_client("$this->url$module");
+			$client->setOpt(YAR_OPT_CONNECT_TIMEOUT, $this->timeout);
 
 			return $client->$method($param);
 		}

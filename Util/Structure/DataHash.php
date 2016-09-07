@@ -27,11 +27,6 @@ class DataHash
 	public  $name       = 'hash';
 
 	/**
-	 * 编码对象
-	 */
-	public  $encoding   = null;
-
-	/**
 	 * 当前连接对象
 	 */
 	private $connectId  = null;
@@ -63,7 +58,6 @@ class DataHash
 		$this->db         = null;
 		$this->configFile = null;
 		$this->name	      = null;
-		$this->encoding   = null;
 		$this->connectId  = null;
 	}
 
@@ -133,11 +127,10 @@ class DataHash
 	 * 元素是否存在
 	 *
 	 * @access	public
-	 * @param	mixed	$key		键
-	 * @param	int		$encoding	编码方式(0-3)
+	 * @param	string	$key	键
 	 * @return	bool
 	 */
-	public function exist($key, $encoding = 1)
+	public function exist($key)
 	{
 		if ( empty($key) )
 		{
@@ -145,7 +138,6 @@ class DataHash
 		}
 
 		$this->connect();
-		$key = $this->encoding->encode($key, $encoding);
 		return $this->connectId->hExists($this->name, $key);
 	}
 	
@@ -153,20 +145,18 @@ class DataHash
 	 * 添加元素
 	 *
 	 * @access	public
-	 * @param	mixed   $key		键
-	 * @param	mixed   $value		值
-	 * @param	int		$encoding	编码方式(0-3)
+	 * @param	string	$key		键
+	 * @param	mixed	$value		值
 	 * @return	void
 	 */
-	public function set($key, $value = '', $encoding = 1)
+	public function set($key, $value = '')
 	{
 		if ( empty($key) ) 
 		{
 			return '';
 		}
+
 		$this->connect();
-		$key   = $this->encoding->encode($key, $encoding);
-		$value = empty($value) ? '' : $this->encoding->encode($value, $encoding);
 		$this->connectId->hSet($this->name, $key, $value);
 	}
 
@@ -174,33 +164,19 @@ class DataHash
 	 * 批量添加元素
 	 *
 	 * @access	public
-	 * @param	array   $kvs		多个键值对
-	 * @param	int		$encoding	编码方式(0-3)
+	 * @param	array   $kvs	多个键值对
 	 * @return	void
 	 */
-	public function mSet($kvs, $encoding = 1)
+	public function mSet($kvs)
 	{
 		if ( empty($kvs) ) 
 		{
 			return '';
 		}
+
 		$this->connect();
 
-		if ( $encoding ) 
-		{
-			$kv = array();
-			foreach ( $kvs as $k => $v )
-			{
-				$k      = $this->encoding->encode($k, $encoding);
-				$v      = $this->encoding->encode($v, $encoding);
-				$kv[$k] = $v;
-			}
-			$this->connectId->hMset($this->name, $kv);
-		} 
-		else
-		{
-			$this->connectId->hMset($this->name, $kvs);
-		}
+		$this->connectId->hMset($this->name, $kvs);
 	}
 
 	/**
@@ -217,6 +193,7 @@ class DataHash
 		{
 			return '';
 		}
+
 		$this->connect();
 		$this->connectId->hIncrBy($this->name, $key, $n);
 	}
@@ -225,18 +202,17 @@ class DataHash
 	 * 删除元素
 	 *
 	 * @access	public
-	 * @param	mixed	$key		键
-	 * @param	int		$encoding	编码方式(0-3)
+	 * @param	string	$key	键
 	 * @return	void
 	 */
-	public function remove($key, $encoding = 1)
+	public function remove($key)
 	{
 		if ( empty($key) )
 		{
 			return '';
 		}
+
 		$this->connect();
-		$key = $this->encoding->encode($key, $encoding);
 		$this->connectId->hDel($this->name, $key);
 	}
 
@@ -244,61 +220,45 @@ class DataHash
 	 * 获取所有键
 	 *
 	 * @access	public
-	 * @param	int		$encoding	编码方式(0-3)
 	 * @return	array
 	 */
-	public function keys($encoding = 1)
+	public function keys()
 	{
 		$this->connect();
-		$keys = $this->connectId->hKeys($this->name);
-		foreach ( $keys as &$key )
-		{
-			$key = $this->encoding->decode($key, $encoding);
-		}
 
-		return $keys;
+		return $this->connectId->hKeys($this->name);
 	}
 
 	/**
 	 * 获取所有值
 	 *
 	 * @access	public
-	 * @param	int		$encoding	编码方式(0-3)
 	 * @return	array
 	 */
-	public function vals($encoding = 1)
+	public function vals()
 	{
 		$this->connect();
-		$vals = $this->connectId->hVals($this->name);
-
-		foreach ( $vals as &$val )
-		{
-			$val = $this->encoding->decode($val, $encoding);
-		}
-
-		return $vals;
+		
+		return $this->connectId->hVals($this->name);
 	}
 
 	/**
 	 * 获取单个元素
 	 *
 	 * @access	public
-	 * @param	mixed	$key	键
+	 * @param	string	$key	键
 	 * @return	mixed
 	 */
-	public function get($key, $encoding = 1)
+	public function get($key)
 	{
 		if ( empty($key) )
 		{
 			return '';
 		}
+
 		$this->connect();
-		$data = $this->connectId->hGet($this->name, $key);
-		if ( $encoding )
-		{
-			return $this->encoding->decode($data, $encoding);
-		}
-		return $data;
+		
+		return $this->connectId->hGet($this->name, $key);
 	}
 
 	/**
@@ -310,20 +270,8 @@ class DataHash
 	public function getAll()
 	{
 		$this->connect();
-		if ( $this->encode )
-		{
-			$items = $this->connectId->hGetAll($this->name);
-			$list  = array();
-			foreach ( $items as $key => $val )
-			{
-				$list[$this->unformat($key)] = $this->unformat($val);
-			}
-			return $list;
-		}
-		else
-		{
-			return $this->connectId->hGetAll($this->name);
-		}
+
+		return $this->connectId->hGetAll($this->name);
 	}
 
 	/**
@@ -339,23 +287,10 @@ class DataHash
 		{
 			return '';
 		}
+
 		$this->connect();
 		
-		if ( $this->encode )
-		{
-			$items = $this->connectId->hmGet($this->name, $keys);
-			$list  = array();
-			foreach ( $items as $key => $val )
-			{
-				$list[$this->unformat($key)] = $this->unformat($val);
-			}
-			$items = null;
-			return $list;
-		}
-		else
-		{
-			return $this->connectId->hmGet($this->name, $keys);
-		}
+		return $this->connectId->hmGet($this->name, $keys);
 	}
 
 	/**
@@ -369,6 +304,5 @@ class DataHash
 		$this->connect();
 		$this->connectId->delete($this->name);
 	}
-
 }
 ?>

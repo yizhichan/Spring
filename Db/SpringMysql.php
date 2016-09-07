@@ -157,7 +157,7 @@ class SpringMysql implements IDataSource
 	 */
 	public function findOne($tableKey, $rule)
 	{
-		$table = $this->getTable($tableKey, $rule['slice'], 0);
+		$table = $this->getTable($tableKey, $rule['slice'], $rule['from']);
 		$where = $this->where($rule);
 		$col   = isset($rule['col']) && is_array($rule['col']) && !empty($rule['col'])
 			     ? implode(",", $this->parseKey($rule['col']) ) 
@@ -177,7 +177,7 @@ class SpringMysql implements IDataSource
 	 */
 	public function find($tableKey, $rule)
 	{
-		$table  = $this->getTable($tableKey, $rule['slice'], 0);
+		$table  = $this->getTable($tableKey, $rule['slice'], $rule['from']);
 		$where  = $this->where($rule);
 		$limit  = isset($rule['limit']) ? intval($rule['limit']) : $this->limit;
 		$offset = $limit <= 0 ? ' limit '.$this->limit : ' limit '.$limit; 
@@ -204,7 +204,7 @@ class SpringMysql implements IDataSource
 	 */
 	public function findAll($tableKey, $rule)
 	{
-		$table  = $this->getTable($tableKey, $rule['slice'], 0);
+		$table  = $this->getTable($tableKey, $rule['slice'], $rule['from']);
 		$where  = $this->where($rule);
 		$limit  = isset($rule['limit']) ? intval($rule['limit']) : $this->limit;
 		$limit  = $limit <= 0 ? $this->limit : $limit; 
@@ -240,7 +240,7 @@ class SpringMysql implements IDataSource
 			unset($rule['order']);
 		}
 
-		$table = $this->getTable($tableKey, $rule['slice'], 0);
+		$table = $this->getTable($tableKey, $rule['slice'], $rule['from']);
 		$where = $this->where($rule);
 		$sql   = "select count(*) as total from $table where $where";
 		
@@ -258,6 +258,32 @@ class SpringMysql implements IDataSource
 		}
 
 		return $total;
+	}
+
+	/**
+	 * 执行原始语句
+	 *
+	 * @access	public
+	 * @param	string	$tableKey	数据表标识
+	 * @param	array	$rule		数据查询规则
+	 * @return	array
+	 */
+	public function raw($tableKey, $rule)
+	{
+		if ( !isset($rule['query']) || !$rule['query'] )
+		{
+			return array();
+		}
+		
+		$this->getTable($tableKey, $rule['slice'], $rule['from']);
+		$rawStatement = explode(" ", $rule['query']);
+		$statement    = strtolower(trim($rawStatement[0]));
+
+		if ( $statement === 'select' || $statement === 'show' ) {
+			return $this->getRows($rule['query']);
+		}
+
+		return $this->query($rule['query']);
 	}
 
 	/**
@@ -427,13 +453,13 @@ class SpringMysql implements IDataSource
 	/**
 	 * 根据key获取表名
 	 *
-	 * @access	protected
+	 * @access	public
 	 * @param	string		$key	数据表标识
 	 * @param	int			$slice	切片[0无切片、大于0的整数为切片标识]
 	 * @param	int			$master	选择主从服务器[0从、1主]
 	 * @return	string
 	 */
-	protected function getTable($key, $slice = 0, $master = 1)
+	public function getTable($key, $slice = 0, $master = 1)
 	{
 		if ( !isset($this->tbl[$key]) ) 
 		{
@@ -452,9 +478,17 @@ class SpringMysql implements IDataSource
 		$table       = $this->tbl[$key]['name'];
 		$this->table = $slice ? $table.intval($slice) : $table;
 
-		$this->configFile = $config[0];
-	    $this->dbId       = $this->tbl[$key]['dbId'];
-
+		if ( $master )
+		{
+			$this->configFile = $config[0];
+			$this->dbId       = $this->tbl[$key]['dbId'];
+		}
+		else
+		{
+			$this->configFile = isset($config[1]) ? $config[1] : $config[0];
+			$this->dbId       = 'slave_'.$this->tbl[$key]['dbId'];
+		}
+		
 		return $this->table;
 	}
 	
@@ -532,18 +566,19 @@ class SpringMysql implements IDataSource
 		if ( isset($rule['ft']) && is_array($rule['ft']) && !empty($rule['ft']) ) {
 			$kv = array();
 			foreach ( $rule['ft'] as $key => $value ) {
-				if ( is_array($value) ){
-					$_kv = array();
-					foreach ($value as $val) {
-						$_kv[] = "MATCH({$this->parseKey($key)}) AGAINST ('$val')";
+				if ( is_array($value) ) {
+					foreach ( $value as $v ) {
+						$v && $kv[] = "MATCH({$this->parseKey($key)}) AGAINST ('$v')";
 					}
-					$kv[] = implode(' and ', $_kv);
-				}else{
-					$kv[] = "MATCH({$this->parseKey($key)}) AGAINST ('$value')";
+				} else {
+					$value && $kv[] = "MATCH({$this->parseKey($key)}) AGAINST ('$value')";
 				}
 			}
-			$ft = "( " . implode(' and ', $kv) . " )";
-			$where .= $where ? " and ".$ft : $ft;
+
+			if ( $kv ) {
+				$ft = "( " . implode(' and ', $kv) . " )";
+				$where .= $where ? " and ".$ft : $ft;
+			}
 		}
 
 		if ( isset($rule['lLike']) && is_array($rule['lLike']) && !empty($rule['lLike']) ) {
@@ -895,7 +930,8 @@ class SpringMysql implements IDataSource
 		if ( !empty($where) )
 		{
 			$sql .= " where $where";
-			return $this->query($sql);
+			$this->query($sql);
+			return $this->getAffected();
 		}
 		
 		return false;
@@ -922,65 +958,6 @@ class SpringMysql implements IDataSource
 		}
 
 		return false;
-	}
-
-	/**
-	 * 生成sql语句
-	 *
-	 * @access	private
-	 * @param	string	$table	表名
-	 * @param	string	$cmd	操作指令
-	 * @param	array	$data	待操作的数据
-	 * @param	array	$rule	条件规则
-	 * @return	string
-	 */
-	private function getSql($table, $cmd = '', $data = array(), $rule = array())
-	{
-		//生成 insert sql
-		if ( $cmd == 'create' && !empty($data) && is_array($data) )
-		{
-			foreach ( $data as $key => $val )
-			{
-				$val      = addslashes($val);
-				$fields[] = $key;
-				$values[] = "'$val'";
-			}
-
-			$field = implode(',', $fields);
-			$value = implode(',', $values);
-
-			return "insert into $table($field) values($value)";
-		}
-
-		//生成 update sql(禁止无条件的操作)
-		if ( $cmd == 'modify' && !empty($data) && is_array($data) && !empty($rule) )
-		{
-			foreach ( $data as $key => $val )
-			{
-				if ( is_array($val) )
-				{
-					$val      = $val[0] . '+' .$val[1];
-					$fields[] = "$key=$val";
-				}
-				else
-				{
-					$val      = addslashes($val);
-					$fields[] = "$key='$val'";
-				}
-			}
-
-			$field = implode(',', $fields);
-			
-			return "update $table set $field where ". $this->where($rule);
-		}
-
-		//生成 delete sql(禁止无条件的操作)
-		if ( $cmd == 'remove' && !empty($rule) )
-		{
-			return "delete from $table where ". $this->where($rule);
-		}
-
-		return '';
 	}
 
 	/**

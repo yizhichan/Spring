@@ -20,6 +20,15 @@ interface IEntity
 	public function slice($slice);
 
 	/**
+	 * 主从定位
+	 *
+	 * @access	public
+	 * @param	int		$master		1为主服务器、0为从服务器
+	 * @return	Entity
+	 */
+	public function locate($master);
+
+	/**
 	 * 得到结构信息
 	 *
 	 * @access	public
@@ -63,6 +72,15 @@ interface IEntity
 	 * @return	int
 	 */
 	public function count($rule);
+
+	/**
+	 * 原始查询
+	 *
+	 * @access	public
+	 * @param	array	$rule	数据查询规则
+	 * @return	array
+	 */
+	public function query($rule);
 
 	/**
 	 * 创建一条数据

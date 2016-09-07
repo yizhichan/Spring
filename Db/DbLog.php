@@ -88,7 +88,7 @@ class DbLog
 		if ( file_exists(LogDir.'/Sql') )
 		{
 			$logFile = 'sql-'.date("Y-m-d", time()).'.log';
-			$excute  = number_format(($this->endTime -$this->startTime), 6).'s';
+			$excute  = date("Y-m-d H:i:s", time())."\t".number_format(($this->endTime -$this->startTime), 6).'s';
 			file_put_contents(LogDir."/Sql/{$logFile}", "【{$excute}】\t$sql\r\n", FILE_APPEND);
 		}
 	}

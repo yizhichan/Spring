@@ -19,7 +19,7 @@ abstract class ModelActionBase extends Object
 	/**
 	 * 模型对象缓存
 	 */
-	private	  $object = array();
+	private	  static $object = array();
 
 	/**
 	 * 加载model对象
@@ -34,15 +34,15 @@ abstract class ModelActionBase extends Object
 		//通过指定引用关系构造模型对象(推荐)
 		if ( $rule == 1 && $objId && isset($this->models[$objId]) && $this->models[$objId] )
 		{
-			if ( isset($this->object[$objId]) ) {
-				return $this->object[$objId];
+			if ( isset(self::$object[$objId]) ) {
+				return self::$object[$objId];
 			}
 
 			$mf                   = $this->com('mf');
 			$mf->models['model']  = $this->models;
 			$mf->suffix           = 'model';
 			$model                = $mf->getObject($objId);
-			$this->object[$objId] = $model;
+			self::$object[$objId] = $model;
 			
 			if ( method_exists($model, 'init') )
 			{

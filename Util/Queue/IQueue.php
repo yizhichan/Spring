@@ -15,20 +15,18 @@ interface IQueue
 	 * 数据入队
 	 *
 	 * @access	public
-	 * @param	mixed	$data		待入队数据
-	 * @param	int		$encoding	编码方式(0-3)
+	 * @param	string	$data	待入队数据
 	 * @return	bool
 	 */
-	public function push($data, $encoding = 1);
+	public function push($data);
 
 	/**
 	 * 数据出队
 	 *
 	 * @access	public
-	 * @param	int		$encoding	编码方式(0-3)
-	 * @return	mixed
+	 * @return	string
 	 */
-	public function pop($encoding = 1);
+	public function pop();
 
 	/**
 	 * 队列长度(队列中元素个数)
