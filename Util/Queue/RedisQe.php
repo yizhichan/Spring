@@ -17,9 +17,9 @@ class RedisQ implements IQueue
 	public  $configFile = null;
 
 	/**
-	 * 编码对象
+	 * 数据库
 	 */
-	public  $encoding   = null;
+	public  $db         = 0;
 
 	/**
 	 * 队列默认名称
@@ -29,7 +29,7 @@ class RedisQ implements IQueue
 	/**
 	 * 队列连接对象
 	 */
-	private $q	       = null;
+	private $q	        = null;
 
 
 	/**
@@ -52,7 +52,6 @@ class RedisQ implements IQueue
 		$this->q          = null;
 		$this->configFile = null;
 		$this->name	      = null;
-		$this->encoding   = null;
 	}
 	
 	/**
@@ -70,9 +69,10 @@ class RedisQ implements IQueue
 				throw new SpringException("配置文件：".$this->configFile."不存在!");
 			}
 			require($this->configFile);
-			$this->q = new Redis();
+			$this->db 	= $db;
+			$this->q 	= new Redis();
 			$this->q->connect($host, $port);
-			$this->q->select($db);
+			$this->q->select($this->db);
 		}
 	}
 
@@ -108,14 +108,13 @@ class RedisQ implements IQueue
 	 * 数据入队
 	 *
 	 * @access public
-	 * @param  mixed    $data		待入队数据
-	 * @param  int		$encoding	编码方式(0-3)
+	 * @param  string    $data	待入队数据
 	 * @return bool
 	 */
-	public function push($data, $encoding = 1)
+	public function push($data)
 	{
 		$this->connect();
-		$encoding && $data = $this->encoding->encode($data, $encoding);
+
 		return $this->q->lPush($this->name, $data);
 	}
 
@@ -123,19 +122,13 @@ class RedisQ implements IQueue
 	 * 数据出队
 	 *
 	 * @access	public
-	 * @param	int		$encoding	编码方式(0-3)
-	 * @return	mixed
+	 * @return	string
 	 */
-	public function pop($encoding = 1)
+	public function pop()
 	{
 		$this->connect();
-		$data = $this->q->rPop($this->name);
-		if ( $encoding == 0 )
-		{
-			return $data;
-		}
 
-		return $data ? $this->encoding->decode($data, $encoding) : '';
+		return $this->q->rPop($this->name);
 	}
 
 	/**
