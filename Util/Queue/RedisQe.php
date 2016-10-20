@@ -9,7 +9,7 @@
  * @version 3.1.4
  +------------------------------------------------------------------------------
  */
-class RedisQ implements IQueue
+class RedisQe implements IQueue
 {	
 	/**
 	 * 配置文件
