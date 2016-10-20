@@ -69,7 +69,8 @@ class RedisQ implements IQueue
 				throw new SpringException("配置文件：".$this->configFile."不存在!");
 			}
 			require($this->configFile);
-			$this->q = new Redis();
+			$this->db 	= $db;
+			$this->q 	= new Redis();
 			$this->q->connect($host, $port);
 			$this->q->select($this->db);
 		}
