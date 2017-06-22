@@ -76,7 +76,6 @@ class RedisCache implements ICache
 				throw new SpringException("配置文件：".$this->configFile."不存在!");
 			}
 			require($this->configFile);
-			$this->db = $db;
 			$this->connectId = new Redis();
 			$this->connectId->connect($host, $port);
 			$this->connectId->select($this->db);
@@ -89,11 +88,12 @@ class RedisCache implements ICache
 	 * @access	private
 	 * @return	void
 	 */
-	private function close()
+	public function close()
 	{
 		if ( $this->connectId != null )
 		{
 			$this->connectId->close();
+			$this->connectId = null;
 		}
 	}	
 	

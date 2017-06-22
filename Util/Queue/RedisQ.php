@@ -79,10 +79,10 @@ class RedisQ implements IQueue
 	/**
 	 * 关闭连接
 	 *
-	 * @access	private
+	 * @access	public
 	 * @return	void
 	 */
-	private function close()
+	public function close()
 	{
 		if ( $this->q != null )
 		{
